@@ -1,11 +1,11 @@
 pub mod buffer;
+pub mod command_buffer;
+pub mod command_pool;
 pub mod debug_report;
 pub mod device;
 pub mod instance;
 pub mod memory;
 pub mod queue;
-pub mod command_pool;
-
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -17,12 +17,16 @@ pub trait RawHandle {
     fn destroy(&self, deps: &Self::Dependencies);
 }
 
+struct UniqueData<T, D> {
+    handle: T,
+    dependencies: D,
+}
+
 pub struct UniqueHandle<T, D>
 where
     T: RawHandle<Dependencies = D>,
 {
-    handle: T,
-    dependencies: D,
+    data: Option<UniqueData<T, D>>,
 }
 
 impl<T, D> UniqueHandle<T, D>
@@ -35,17 +39,33 @@ where
     pub unsafe fn new(handle: T, dependencies: D) -> Self {
         log::trace!("Unique {} initialized", T::name());
         Self {
-            handle,
-            dependencies,
+            data: Some(UniqueData {
+                handle,
+                dependencies,
+            }),
         }
     }
 
     pub fn handle(&self) -> &T {
-        &self.handle
+        if let Some(d) = &self.data {
+            return &d.handle;
+        }
+        unreachable!()
     }
 
     pub fn dependencies(&self) -> &D {
-        &self.dependencies
+        if let Some(d) = &self.data {
+            return &d.dependencies;
+        }
+        unreachable!()
+    }
+
+    pub fn into_inner(mut self) -> (T, D) {
+        let d = self
+            .data
+            .take()
+            .expect("Try convert uninitialized unique handle into inner");
+        (d.handle, d.dependencies)
     }
 }
 
@@ -54,8 +74,10 @@ where
     T: RawHandle<Dependencies = D>,
 {
     fn drop(&mut self) {
-        log::trace!("Unique {} destroyed", T::name());
-        self.handle.destroy(&self.dependencies)
+        if let Some(d) = &self.data {
+            log::trace!("Unique {} destroyed", T::name());
+            d.handle.destroy(&d.dependencies)
+        }
     }
 }
 
@@ -86,6 +108,13 @@ where
 
     pub fn dependencies(&self) -> &D {
         &self.handle.dependencies()
+    }
+
+    pub fn try_unwrap(self) -> Result<(T, D), Self> {
+        match Arc::try_unwrap(self.handle) {
+            Ok(unique) => Ok(unique.into_inner()),
+            Err(e) => Err(Self { handle: e }),
+        }
     }
 }
 
