@@ -11,15 +11,16 @@ use vk_raii::buffer::Buffer;
 use vk_raii::command_buffer::CommandBuffers;
 use vk_raii::command_pool::CommandPool;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
-use vk_raii::ds_layout::DescriptorSetLayout;
 use vk_raii::device::Device;
+use vk_raii::ds_layout::DescriptorSetLayout;
 use vk_raii::instance::Instance;
 use vk_raii::memory::Memory;
+use vk_raii::pipeline_layout::PipelineLayout;
 use vk_raii::queue::Queue;
 use vk_raii::sampler::Sampler;
 use vk_raii::{
-    buffer, command_buffer, command_pool, debug_report, ds_layout, device, instance, memory,
-    queue, sampler,
+    buffer, command_buffer, command_pool, debug_report, device, ds_layout, instance, memory,
+    pipeline_layout, queue, sampler,
 };
 
 fn main() {
@@ -42,7 +43,8 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let command_pool = create_command_pool(device.clone())?;
     let _command_buffers = allocate_command_buffers(device.clone(), command_pool)?;
     let samplers = create_samplers(device.clone())?;
-    let _descr_set_layout = create_descr_set_layout(device, samplers);
+    let descr_set_layout = create_descr_set_layout(device.clone(), samplers)?;
+    let _pipeline_layout = create_pipeline_layout(device, vec![descr_set_layout]);
     Ok("Success".into())
 }
 
@@ -225,7 +227,7 @@ fn create_descr_set_layout(
             .map_err(|e| init_err("descriptor set layout ", e))?;
         let deps = ds_layout::Deps {
             device,
-            samplers: vec![],
+            samplers,
         };
         Ok(DescriptorSetLayout::new(raw, deps))
     }
@@ -251,6 +253,39 @@ fn create_samplers(device: Device) -> Result<Vec<Sampler>, InitVulkanError> {
             ),
             Sampler::new(raw2, sampler::Deps { device }),
         ])
+    }
+}
+
+fn create_pipeline_layout(
+    device: Device,
+    ds_layouts: Vec<DescriptorSetLayout>,
+) -> Result<PipelineLayout, InitVulkanError> {
+    let raw_ds_layouts: Vec<vk::DescriptorSetLayout> =
+        ds_layouts.iter().map(|dsl| *dsl.handle()).collect();
+    let push_constant1 = vk::PushConstantRange::builder()
+        .size(16)
+        .offset(0)
+        .stage_flags(vk::ShaderStageFlags::VERTEX)
+        .build();
+
+    let push_constant2 = vk::PushConstantRange::builder()
+        .size(32)
+        .offset(16)
+        .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+        .build();
+
+    let ranges = [push_constant1, push_constant2];
+
+    let ci = vk::PipelineLayoutCreateInfo::builder()
+        .set_layouts(raw_ds_layouts.as_slice())
+        .push_constant_ranges(&ranges);
+
+    unsafe {
+        let raw = device
+            .create_pipeline_layout(&ci, None)
+            .map_err(|e| init_err("pipeline layout", e))?;
+        let deps = pipeline_layout::Deps { device, ds_layouts };
+        Ok(PipelineLayout::new(raw, deps))
     }
 }
 

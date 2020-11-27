@@ -6,7 +6,7 @@ use crate::ds_layout::DescriptorSetLayout;
 
 pub struct Deps {
     pub device: Device,
-    pub ds_layout: DescriptorSetLayout
+    pub ds_layouts: Vec<DescriptorSetLayout>
 }
 
 impl RawHandle for vk::PipelineLayout {
