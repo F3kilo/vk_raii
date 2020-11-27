@@ -1,9 +1,11 @@
+pub mod instance;
+
 use std::sync::Arc;
 
 pub trait RawHandle {
     type Dependencies;
 
-    fn destroy(&self, info: &Self::Dependencies);
+    fn destroy(&self, deps: &Self::Dependencies);
 }
 
 pub struct UniqueHandle<T, D>
@@ -47,7 +49,7 @@ where
 }
 
 #[derive(Clone)]
-struct Handle<T, D>
+pub struct Handle<T, D>
 where
     T: RawHandle<Dependencies = D>,
 {
