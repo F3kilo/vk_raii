@@ -3,6 +3,7 @@ pub mod debug_report;
 pub mod device;
 pub mod instance;
 pub mod memory;
+pub mod queue;
 
 use std::ops::Deref;
 use std::sync::Arc;
