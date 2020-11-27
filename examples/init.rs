@@ -77,7 +77,7 @@ fn init_debug_report(instance: Instance) -> Result<DebugReport<Callback>, InitVu
 }
 
 fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {
-    let pdevices = unsafe { instance.handle().enumerate_physical_devices() }
+    let pdevices = unsafe { instance.enumerate_physical_devices() }
         .map_err(|e| init_err("pdevices", e))?;
     let pdevice = match pdevices.get(0) {
         Some(pd) => Ok(*pd),
@@ -99,7 +99,6 @@ fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {
         .enabled_features(&features);
     unsafe {
         let raw = instance
-            .handle()
             .create_device(pdevice, &ci, None)
             .map_err(|e| init_err("device", e))?;
 
@@ -117,7 +116,6 @@ fn create_buffer(device: Device) -> Result<Buffer, InitVulkanError> {
 
     unsafe {
         let raw = device
-            .handle()
             .create_buffer(&ci, None)
             .map_err(|e| init_err("buffer", e))?;
         Ok(Buffer::new(raw, buffer::Dependencies { device }))
@@ -131,7 +129,6 @@ fn allocate_memory(device: Device) -> Result<Memory, InitVulkanError> {
 
     unsafe {
         let raw = device
-            .handle()
             .allocate_memory(&ai, None)
             .map_err(|e| init_err("memory", e))?;
         Ok(Memory::new(raw, memory::Dependencies { device }))

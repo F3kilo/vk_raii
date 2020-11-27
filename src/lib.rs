@@ -1,9 +1,10 @@
-pub mod debug_report;
-pub mod instance;
-pub mod device;
 pub mod buffer;
+pub mod debug_report;
+pub mod device;
+pub mod instance;
 pub mod memory;
 
+use std::ops::Deref;
 use std::sync::Arc;
 
 pub trait RawHandle {
@@ -70,8 +71,8 @@ where
     /// # Safety
     /// * `handle` must be valud initialized handle;
     /// * `dependencies` must contain valid and initialized handles;
-    pub unsafe fn new(handle: T, destroy_info: D) -> Self {
-        let unique = UniqueHandle::new(handle, destroy_info);
+    pub unsafe fn new(handle: T, dependencies: D) -> Self {
+        let unique = UniqueHandle::new(handle, dependencies);
         Self {
             handle: Arc::new(unique),
         }
@@ -94,5 +95,16 @@ where
         Self {
             handle: self.handle.clone(),
         }
+    }
+}
+
+impl<T, D> Deref for Handle<T, D>
+where
+    T: RawHandle<Dependencies = D>,
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.handle()
     }
 }

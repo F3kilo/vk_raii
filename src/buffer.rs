@@ -15,7 +15,7 @@ impl RawHandle for vk::Buffer {
     }
 
     fn destroy(&self, dependencies: &Self::Dependencies) {
-        unsafe { dependencies.device.handle().destroy_buffer(*self, None) }
+        unsafe { dependencies.device.destroy_buffer(*self, None) }
     }
 }
 

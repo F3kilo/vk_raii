@@ -15,7 +15,7 @@ impl RawHandle for vk::DeviceMemory {
     }
 
     fn destroy(&self, deps: &Self::Dependencies) {
-        unsafe { deps.device.handle().free_memory(*self, None) }
+        unsafe { deps.device.free_memory(*self, None) }
     }
 }
 
