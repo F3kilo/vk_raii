@@ -49,7 +49,7 @@ fn init_instance(entry: ash::Entry) -> Result<Instance, InitVulkanError> {
         let raw = entry
             .create_instance(&ci, None)
             .map_err(|e| init_err("instance", e))?;
-        Ok(Instance::new(raw, instance::Dependencies { entry }))
+        Ok(Instance::new(raw, instance::Deps { entry }))
     }
 }
 
@@ -67,7 +67,7 @@ fn init_debug_report(instance: Instance) -> Result<DebugReport<Callback>, InitVu
     let raw = unsafe { deb_rep.create_debug_report_callback(&ci, None) }
         .map_err(|e| init_err("debug report", e))?;
 
-    let deps = debug_report::Dependencies {
+    let deps = debug_report::Deps {
         instance,
         user_data: Some(callback),
     };
@@ -103,14 +103,14 @@ fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {
             .create_device(pdevice, &ci, None)
             .map_err(|e| init_err("device", e))?;
 
-        Ok(Device::new(raw, device::Dependencies { pdevice, instance }))
+        Ok(Device::new(raw, device::Deps { pdevice, instance }))
     }
 }
 
 fn get_queue(device: Device) -> Queue {
     unsafe {
         let raw = device.get_device_queue(0, 0);
-        Queue::new(raw, queue::Dependencies { device })
+        Queue::new(raw, queue::Deps { device })
     }
 }
 
@@ -126,7 +126,7 @@ fn create_buffer(device: Device) -> Result<Buffer, InitVulkanError> {
         let raw = device
             .create_buffer(&ci, None)
             .map_err(|e| init_err("buffer", e))?;
-        Ok(Buffer::new(raw, buffer::Dependencies { device }))
+        Ok(Buffer::new(raw, buffer::Deps { device }))
     }
 }
 
@@ -139,7 +139,7 @@ fn allocate_memory(device: Device) -> Result<Memory, InitVulkanError> {
         let raw = device
             .allocate_memory(&ai, None)
             .map_err(|e| init_err("memory", e))?;
-        Ok(Memory::new(raw, memory::Dependencies { device }))
+        Ok(Memory::new(raw, memory::Deps { device }))
     }
 }
 

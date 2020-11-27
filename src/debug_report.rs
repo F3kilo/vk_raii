@@ -28,13 +28,13 @@ impl<UserData> RawDebugReport<UserData> {
     }
 }
 
-pub struct Dependencies<UserData> {
+pub struct Deps<UserData> {
     pub instance: Instance,
     pub user_data: Option<Pin<Box<UserData>>>,
 }
 
 impl<UserData> RawHandle for RawDebugReport<UserData> {
-    type Dependencies = Dependencies<UserData>;
+    type Dependencies = Deps<UserData>;
 
     fn name() -> &'static str {
         "debug report"
@@ -48,7 +48,7 @@ impl<UserData> RawHandle for RawDebugReport<UserData> {
     }
 }
 
-pub type DebugReport<UserData> = Handle<RawDebugReport<UserData>, Dependencies<UserData>>;
+pub type DebugReport<UserData> = Handle<RawDebugReport<UserData>, Deps<UserData>>;
 
 #[derive(Debug, Copy, Clone)]
 pub enum MessageLevel {

@@ -1,15 +1,15 @@
-use crate::{Handle, RawHandle};
-use ash::vk;
-use ash::version::DeviceV1_0;
 use crate::instance::Instance;
+use crate::{Handle, RawHandle};
+use ash::version::DeviceV1_0;
+use ash::vk;
 
-pub struct Dependencies {
+pub struct Deps {
     pub instance: Instance,
     pub pdevice: vk::PhysicalDevice,
 }
 
 impl RawHandle for ash::Device {
-    type Dependencies = Dependencies;
+    type Dependencies = Deps;
 
     fn name() -> &'static str {
         "device"
@@ -20,4 +20,4 @@ impl RawHandle for ash::Device {
     }
 }
 
-pub type Device = Handle<ash::Device, Dependencies>;
+pub type Device = Handle<ash::Device, Deps>;

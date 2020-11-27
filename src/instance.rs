@@ -1,12 +1,12 @@
 use crate::{Handle, RawHandle};
 use ash::version::InstanceV1_0;
 
-pub struct Dependencies {
+pub struct Deps {
     pub entry: ash::Entry,
 }
 
 impl RawHandle for ash::Instance {
-    type Dependencies = Dependencies;
+    type Dependencies = Deps;
 
     fn name() -> &'static str {
         "instance"
@@ -17,4 +17,4 @@ impl RawHandle for ash::Instance {
     }
 }
 
-pub type Instance = Handle<ash::Instance, Dependencies>;
+pub type Instance = Handle<ash::Instance, Deps>;

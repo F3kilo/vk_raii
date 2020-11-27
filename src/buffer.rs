@@ -3,12 +3,12 @@ use crate::{Handle, RawHandle};
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-pub struct Dependencies {
+pub struct Deps {
     pub device: Device,
 }
 
 impl RawHandle for vk::Buffer {
-    type Dependencies = Dependencies;
+    type Dependencies = Deps;
 
     fn name() -> &'static str {
         "buffer"
@@ -19,4 +19,4 @@ impl RawHandle for vk::Buffer {
     }
 }
 
-pub type Buffer = Handle<vk::Buffer, Dependencies>;
+pub type Buffer = Handle<vk::Buffer, Deps>;
