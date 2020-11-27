@@ -11,6 +11,7 @@ pub mod sampler;
 pub mod pipeline_layout;
 pub mod pipeline_cache;
 pub mod pipeline;
+pub mod shader_module;
 
 use std::ops::Deref;
 use std::sync::Arc;
