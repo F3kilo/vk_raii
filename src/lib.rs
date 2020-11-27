@@ -7,6 +7,7 @@ pub mod instance;
 pub mod memory;
 pub mod queue;
 pub mod descr_set_layout;
+pub mod sampler;
 
 use std::ops::Deref;
 use std::sync::Arc;

@@ -11,12 +11,15 @@ use vk_raii::buffer::Buffer;
 use vk_raii::command_buffer::CommandBuffers;
 use vk_raii::command_pool::CommandPool;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
+use vk_raii::descr_set_layout::DescriptorSetLayout;
 use vk_raii::device::Device;
 use vk_raii::instance::Instance;
 use vk_raii::memory::Memory;
 use vk_raii::queue::Queue;
+use vk_raii::sampler::Sampler;
 use vk_raii::{
-    buffer, command_buffer, command_pool, debug_report, device, instance, memory, queue,
+    buffer, command_buffer, command_pool, debug_report, descr_set_layout, device, instance, memory,
+    queue, sampler,
 };
 
 fn main() {
@@ -37,7 +40,9 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let _memory = allocate_memory(device.clone())?;
     let _queue = get_queue(device.clone());
     let command_pool = create_command_pool(device.clone())?;
-    let _command_buffers = allocate_command_buffers(device, command_pool)?;
+    let _command_buffers = allocate_command_buffers(device.clone(), command_pool)?;
+    let samplers = create_samplers(device.clone())?;
+    let _descr_set_layout = create_descr_set_layout(device, samplers);
     Ok("Success".into())
 }
 
@@ -182,6 +187,71 @@ fn allocate_command_buffers(
         .unwrap_or_else(|_| panic!("Can't unwrap command buffers handle"));
 
     Ok(unsafe { CommandBuffers::new(raw, deps) })
+}
+
+fn create_descr_set_layout(
+    device: Device,
+    samplers: Vec<Sampler>,
+) -> Result<DescriptorSetLayout, InitVulkanError> {
+    let uniform_binding = vk::DescriptorSetLayoutBinding::builder()
+        .binding(0)
+        .descriptor_count(1)
+        .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER);
+
+    let storage_binding = vk::DescriptorSetLayoutBinding::builder()
+        .binding(1)
+        .descriptor_count(1)
+        .descriptor_type(vk::DescriptorType::STORAGE_BUFFER);
+
+    let raw_samplers: Vec<vk::Sampler> = samplers.iter().map(|s| s.handle()).copied().collect();
+
+    let samplers_binding = vk::DescriptorSetLayoutBinding::builder()
+        .binding(2)
+        .descriptor_count(2)
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .immutable_samplers(raw_samplers.as_slice());
+
+    let bindings = [
+        uniform_binding.build(),
+        storage_binding.build(),
+        samplers_binding.build(),
+    ];
+
+    let ci = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+
+    unsafe {
+        let raw = device
+            .create_descriptor_set_layout(&ci, None)
+            .map_err(|e| init_err("descriptor set layout ", e))?;
+        let deps = descr_set_layout::Deps {
+            device,
+            samplers: vec![],
+        };
+        Ok(DescriptorSetLayout::new(raw, deps))
+    }
+}
+
+fn create_samplers(device: Device) -> Result<Vec<Sampler>, InitVulkanError> {
+    let ci = vk::SamplerCreateInfo::default();
+    unsafe {
+        let raw1 = device
+            .create_sampler(&ci, None)
+            .map_err(|e| init_err("sampler", e))?;
+
+        let raw2 = device
+            .create_sampler(&ci, None)
+            .map_err(|e| init_err("sampler", e))?;
+
+        Ok(vec![
+            Sampler::new(
+                raw1,
+                sampler::Deps {
+                    device: device.clone(),
+                },
+            ),
+            Sampler::new(raw2, sampler::Deps { device }),
+        ])
+    }
 }
 
 #[derive(Debug)]
