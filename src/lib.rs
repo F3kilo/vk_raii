@@ -6,6 +6,8 @@ pub mod device;
 pub mod instance;
 pub mod memory;
 pub mod queue;
+pub mod descr_set_layout;
+
 use std::ops::Deref;
 use std::sync::Arc;
 
