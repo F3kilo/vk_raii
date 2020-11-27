@@ -1,5 +1,5 @@
 use ash::extensions::ext;
-use ash::version::EntryV1_0;
+use ash::version::{EntryV1_0, InstanceV1_0};
 use ash::vk;
 use log::LevelFilter;
 use std::error::Error;
@@ -8,8 +8,9 @@ use std::ops::DerefMut;
 use std::os::raw::c_void;
 use std::pin::Pin;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
+use vk_raii::device::Device;
 use vk_raii::instance::Instance;
-use vk_raii::{debug_report, instance};
+use vk_raii::{debug_report, device, instance};
 
 fn main() {
     env_logger::builder()
@@ -23,7 +24,8 @@ fn main() {
 fn init_vulkan() -> Result<String, InitVulkanError> {
     let entry = ash::Entry::new().map_err(|e| init_err("entry", e))?;
     let instance = init_instance(entry)?;
-    let _debug_report = init_debug_report(instance);
+    let _debug_report = init_debug_report(instance.clone())?;
+    let _device = create_device(instance)?;
 
     Ok("Success".into())
 }
@@ -51,7 +53,7 @@ fn init_debug_report(instance: Instance) -> Result<DebugReport<Callback>, InitVu
     let ci = vk::DebugReportCallbackCreateInfoEXT::builder()
         .user_data(cb_ptr as *mut c_void)
         .pfn_callback(Some(debug_report::debug_report_with_default_callback))
-        .flags(vk::DebugReportFlagsEXT::all());
+        .flags(vk::DebugReportFlagsEXT::all() ^ vk::DebugReportFlagsEXT::INFORMATION);
 
     let deb_rep = ext::DebugReport::new(&instance.dependencies().entry, instance.handle());
     let raw = unsafe { deb_rep.create_debug_report_callback(&ci, None) }
@@ -65,6 +67,37 @@ fn init_debug_report(instance: Instance) -> Result<DebugReport<Callback>, InitVu
     let raw_debug_report = RawDebugReport::new(raw, deb_rep);
 
     unsafe { Ok(DebugReport::new(raw_debug_report, deps)) }
+}
+
+fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {
+    let pdevices = unsafe { instance.handle().enumerate_physical_devices() }
+        .map_err(|e| init_err("pdevices", e))?;
+    let pdevice = match pdevices.get(0) {
+        Some(pd) => Ok(*pd),
+        None => Err(InitVulkanError {
+            msg: "Can't find vulkan pdevice".into(),
+        }),
+    }?;
+
+    let features = vk::PhysicalDeviceFeatures::default();
+    let prioreties = [1f32];
+    let queue = vk::DeviceQueueCreateInfo::builder()
+        .queue_family_index(0)
+        .queue_priorities(&prioreties)
+        .build();
+    let queues_info = [queue];
+
+    let ci = vk::DeviceCreateInfo::builder()
+        .queue_create_infos(&queues_info)
+        .enabled_features(&features);
+    unsafe {
+        let raw = instance
+            .handle()
+            .create_device(pdevice, &ci, None)
+            .map_err(|e| init_err("device", e))?;
+
+        Ok(Device::new(raw, device::Dependencies { pdevice, instance }))
+    }
 }
 
 #[derive(Debug)]
