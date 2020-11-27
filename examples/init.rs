@@ -1,5 +1,5 @@
 use ash::extensions::ext;
-use ash::version::{EntryV1_0, InstanceV1_0};
+use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 use log::LevelFilter;
 use std::error::Error;
@@ -7,10 +7,11 @@ use std::fmt;
 use std::ops::DerefMut;
 use std::os::raw::c_void;
 use std::pin::Pin;
+use vk_raii::buffer::Buffer;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
 use vk_raii::device::Device;
 use vk_raii::instance::Instance;
-use vk_raii::{debug_report, device, instance};
+use vk_raii::{buffer, debug_report, device, instance};
 
 fn main() {
     env_logger::builder()
@@ -25,8 +26,8 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let entry = ash::Entry::new().map_err(|e| init_err("entry", e))?;
     let instance = init_instance(entry)?;
     let _debug_report = init_debug_report(instance.clone())?;
-    let _device = create_device(instance)?;
-
+    let device = create_device(instance)?;
+    let _buffer = create_buffer(device);
     Ok("Success".into())
 }
 
@@ -100,6 +101,23 @@ fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {
             .map_err(|e| init_err("device", e))?;
 
         Ok(Device::new(raw, device::Dependencies { pdevice, instance }))
+    }
+}
+
+fn create_buffer(device: Device) -> Result<Buffer, InitVulkanError> {
+    let queue_family_indices = [0u32];
+    let ci = vk::BufferCreateInfo::builder()
+        .size(128)
+        .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
+        .sharing_mode(vk::SharingMode::EXCLUSIVE)
+        .queue_family_indices(&queue_family_indices);
+
+    unsafe {
+        let raw = device
+            .handle()
+            .create_buffer(&ci, None)
+            .map_err(|e| init_err("buffer", e))?;
+        Ok(Buffer::new(raw, buffer::Dependencies { device }))
     }
 }
 

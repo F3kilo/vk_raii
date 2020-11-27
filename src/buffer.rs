@@ -11,7 +11,7 @@ impl RawHandle for vk::Buffer {
     type Dependencies = Dependencies;
 
     fn name() -> &'static str {
-        "device"
+        "buffer"
     }
 
     fn destroy(&self, dependencies: &Self::Dependencies) {
