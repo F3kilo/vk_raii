@@ -8,12 +8,13 @@ use std::ops::DerefMut;
 use std::os::raw::c_void;
 use std::pin::Pin;
 use vk_raii::buffer::Buffer;
+use vk_raii::command_pool::CommandPool;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
 use vk_raii::device::Device;
 use vk_raii::instance::Instance;
 use vk_raii::memory::Memory;
 use vk_raii::queue::Queue;
-use vk_raii::{buffer, debug_report, device, instance, memory, queue};
+use vk_raii::{buffer, command_pool, debug_report, device, instance, memory, queue};
 
 fn main() {
     env_logger::builder()
@@ -31,7 +32,8 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let device = create_device(instance)?;
     let _buffer = create_buffer(device.clone())?;
     let _memory = allocate_memory(device.clone())?;
-    let _queue = get_queue(device);
+    let _queue = get_queue(device.clone());
+    let _command_pool = create_command_pool(device)?;
     Ok("Success".into())
 }
 
@@ -140,6 +142,17 @@ fn allocate_memory(device: Device) -> Result<Memory, InitVulkanError> {
             .allocate_memory(&ai, None)
             .map_err(|e| init_err("memory", e))?;
         Ok(Memory::new(raw, memory::Deps { device }))
+    }
+}
+
+fn create_command_pool(device: Device) -> Result<CommandPool, InitVulkanError> {
+    let ci = vk::CommandPoolCreateInfo::builder().queue_family_index(0);
+
+    unsafe {
+        let raw = device
+            .create_command_pool(&ci, None)
+            .map_err(|e| init_err("buffer", e))?;
+        Ok(CommandPool::new(raw, command_pool::Deps { device }))
     }
 }
 
