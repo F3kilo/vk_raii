@@ -2,6 +2,7 @@ pub mod debug_report;
 pub mod instance;
 pub mod device;
 pub mod buffer;
+pub mod memory;
 
 use std::sync::Arc;
 
