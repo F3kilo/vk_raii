@@ -11,14 +11,14 @@ use vk_raii::buffer::Buffer;
 use vk_raii::command_buffer::CommandBuffers;
 use vk_raii::command_pool::CommandPool;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
-use vk_raii::descr_set_layout::DescriptorSetLayout;
+use vk_raii::ds_layout::DescriptorSetLayout;
 use vk_raii::device::Device;
 use vk_raii::instance::Instance;
 use vk_raii::memory::Memory;
 use vk_raii::queue::Queue;
 use vk_raii::sampler::Sampler;
 use vk_raii::{
-    buffer, command_buffer, command_pool, debug_report, descr_set_layout, device, instance, memory,
+    buffer, command_buffer, command_pool, debug_report, ds_layout, device, instance, memory,
     queue, sampler,
 };
 
@@ -223,7 +223,7 @@ fn create_descr_set_layout(
         let raw = device
             .create_descriptor_set_layout(&ci, None)
             .map_err(|e| init_err("descriptor set layout ", e))?;
-        let deps = descr_set_layout::Deps {
+        let deps = ds_layout::Deps {
             device,
             samplers: vec![],
         };
