@@ -8,6 +8,10 @@ pub struct Dependencies {
 impl RawHandle for ash::Instance {
     type Dependencies = Dependencies;
 
+    fn name() -> &'static str {
+        "instance"
+    }
+
     fn destroy(&self, _: &Self::Dependencies) {
         unsafe { self.destroy_instance(None) }
     }

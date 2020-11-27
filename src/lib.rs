@@ -6,6 +6,8 @@ use std::sync::Arc;
 pub trait RawHandle {
     type Dependencies;
 
+    fn name() -> &'static str;
+
     fn destroy(&self, deps: &Self::Dependencies);
 }
 
@@ -25,6 +27,7 @@ where
     /// * `handle` must be valud initialized handle;
     /// * `dependencies` must contain valid and initialized handles;
     pub unsafe fn new(handle: T, dependencies: D) -> Self {
+        log::trace!("Unique {} initialized", T::name());
         Self {
             handle,
             dependencies,
@@ -45,11 +48,11 @@ where
     T: RawHandle<Dependencies = D>,
 {
     fn drop(&mut self) {
+        log::trace!("Unique {} destroyed", T::name());
         self.handle.destroy(&self.dependencies)
     }
 }
 
-#[derive(Clone)]
 pub struct Handle<T, D>
 where
     T: RawHandle<Dependencies = D>,
@@ -77,5 +80,16 @@ where
 
     pub fn dependencies(&self) -> &D {
         &self.handle.dependencies()
+    }
+}
+
+impl<T, D> Clone for Handle<T, D>
+where
+    T: RawHandle<Dependencies = D>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            handle: self.handle.clone(),
+        }
     }
 }
