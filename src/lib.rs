@@ -1,5 +1,6 @@
 pub mod debug_report;
 pub mod instance;
+pub mod device;
 
 use std::sync::Arc;
 
