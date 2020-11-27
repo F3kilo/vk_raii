@@ -1,3 +1,4 @@
+pub mod DebugReport;
 pub mod instance;
 
 use std::sync::Arc;
