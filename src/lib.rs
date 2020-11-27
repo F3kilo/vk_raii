@@ -61,6 +61,7 @@ where
     }
 
     pub fn into_inner(mut self) -> (T, D) {
+        log::trace!("Unique {} unwrapped", T::name());
         let d = self
             .data
             .take()

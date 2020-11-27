@@ -38,4 +38,4 @@ impl RawHandle for Vec<vk::CommandBuffer> {
     }
 }
 
-pub type CommandBuffers = Handle<Vec<vk::CommandPool>, Deps>;
+pub type CommandBuffers = Handle<Vec<vk::CommandBuffer>, Deps>;

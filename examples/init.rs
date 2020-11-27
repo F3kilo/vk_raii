@@ -8,13 +8,16 @@ use std::ops::DerefMut;
 use std::os::raw::c_void;
 use std::pin::Pin;
 use vk_raii::buffer::Buffer;
+use vk_raii::command_buffer::CommandBuffers;
 use vk_raii::command_pool::CommandPool;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
 use vk_raii::device::Device;
 use vk_raii::instance::Instance;
 use vk_raii::memory::Memory;
 use vk_raii::queue::Queue;
-use vk_raii::{buffer, command_pool, debug_report, device, instance, memory, queue};
+use vk_raii::{
+    buffer, command_buffer, command_pool, debug_report, device, instance, memory, queue,
+};
 
 fn main() {
     env_logger::builder()
@@ -33,7 +36,8 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let _buffer = create_buffer(device.clone())?;
     let _memory = allocate_memory(device.clone())?;
     let _queue = get_queue(device.clone());
-    let _command_pool = create_command_pool(device)?;
+    let command_pool = create_command_pool(device.clone())?;
+    let _command_buffers = allocate_command_buffers(device, command_pool)?;
     Ok("Success".into())
 }
 
@@ -154,6 +158,30 @@ fn create_command_pool(device: Device) -> Result<CommandPool, InitVulkanError> {
             .map_err(|e| init_err("buffer", e))?;
         Ok(CommandPool::new(raw, command_pool::Deps { device }))
     }
+}
+
+fn allocate_command_buffers(
+    device: Device,
+    pool: CommandPool,
+) -> Result<CommandBuffers, InitVulkanError> {
+    let ci = vk::CommandBufferAllocateInfo::builder()
+        .command_pool(*pool)
+        .level(vk::CommandBufferLevel::PRIMARY)
+        .command_buffer_count(5);
+
+    let cbs = unsafe {
+        let raw = device
+            .allocate_command_buffers(&ci)
+            .map_err(|e| init_err("command buffers", e))?;
+        let deps = command_buffer::Deps { device, pool };
+        Ok(CommandBuffers::new(raw, deps))?
+    };
+
+    let (raw, deps) = cbs
+        .try_unwrap()
+        .unwrap_or_else(|_| panic!("Can't unwrap command buffers handle"));
+
+    Ok(unsafe { CommandBuffers::new(raw, deps) })
 }
 
 #[derive(Debug)]
