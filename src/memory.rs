@@ -1,9 +1,10 @@
+use crate::device::Device;
 use crate::{Handle, RawHandle};
 use ash::version::DeviceV1_0;
 use ash::vk;
 
 pub struct Dependencies {
-    pub device: ash::Device,
+    pub device: Device,
 }
 
 impl RawHandle for vk::DeviceMemory {
@@ -14,7 +15,7 @@ impl RawHandle for vk::DeviceMemory {
     }
 
     fn destroy(&self, deps: &Self::Dependencies) {
-        unsafe { deps.device.free_memory(*self, None) }
+        unsafe { deps.device.handle().free_memory(*self, None) }
     }
 }
 

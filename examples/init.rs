@@ -11,7 +11,8 @@ use vk_raii::buffer::Buffer;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
 use vk_raii::device::Device;
 use vk_raii::instance::Instance;
-use vk_raii::{buffer, debug_report, device, instance};
+use vk_raii::memory::Memory;
+use vk_raii::{buffer, debug_report, device, instance, memory};
 
 fn main() {
     env_logger::builder()
@@ -27,7 +28,9 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let instance = init_instance(entry)?;
     let _debug_report = init_debug_report(instance.clone())?;
     let device = create_device(instance)?;
-    let _buffer = create_buffer(device);
+    let _buffer = create_buffer(device.clone())?;
+    let _memory = allocate_memory(device)?;
+
     Ok("Success".into())
 }
 
@@ -118,6 +121,20 @@ fn create_buffer(device: Device) -> Result<Buffer, InitVulkanError> {
             .create_buffer(&ci, None)
             .map_err(|e| init_err("buffer", e))?;
         Ok(Buffer::new(raw, buffer::Dependencies { device }))
+    }
+}
+
+fn allocate_memory(device: Device) -> Result<Memory, InitVulkanError> {
+    let ai = vk::MemoryAllocateInfo::builder()
+        .allocation_size(128)
+        .memory_type_index(0);
+
+    unsafe {
+        let raw = device
+            .handle()
+            .allocate_memory(&ai, None)
+            .map_err(|e| init_err("memory", e))?;
+        Ok(Memory::new(raw, memory::Dependencies { device }))
     }
 }
 
