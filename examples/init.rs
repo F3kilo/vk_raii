@@ -15,12 +15,13 @@ use vk_raii::device::Device;
 use vk_raii::ds_layout::DescriptorSetLayout;
 use vk_raii::instance::Instance;
 use vk_raii::memory::Memory;
+use vk_raii::pipeline_cache::PipelineCache;
 use vk_raii::pipeline_layout::PipelineLayout;
 use vk_raii::queue::Queue;
 use vk_raii::sampler::Sampler;
 use vk_raii::{
     buffer, command_buffer, command_pool, debug_report, device, ds_layout, instance, memory,
-    pipeline_layout, queue, sampler,
+    pipeline_cache, pipeline_layout, queue, sampler,
 };
 
 fn main() {
@@ -44,7 +45,8 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let _command_buffers = allocate_command_buffers(device.clone(), command_pool)?;
     let samplers = create_samplers(device.clone())?;
     let descr_set_layout = create_descr_set_layout(device.clone(), samplers)?;
-    let _pipeline_layout = create_pipeline_layout(device, vec![descr_set_layout]);
+    let _pipeline_layout = create_pipeline_layout(device.clone(), vec![descr_set_layout]);
+    let _pipeline_cache = create_pipeline_cache(device);
     Ok("Success".into())
 }
 
@@ -225,10 +227,7 @@ fn create_descr_set_layout(
         let raw = device
             .create_descriptor_set_layout(&ci, None)
             .map_err(|e| init_err("descriptor set layout ", e))?;
-        let deps = ds_layout::Deps {
-            device,
-            samplers,
-        };
+        let deps = ds_layout::Deps { device, samplers };
         Ok(DescriptorSetLayout::new(raw, deps))
     }
 }
@@ -286,6 +285,17 @@ fn create_pipeline_layout(
             .map_err(|e| init_err("pipeline layout", e))?;
         let deps = pipeline_layout::Deps { device, ds_layouts };
         Ok(PipelineLayout::new(raw, deps))
+    }
+}
+
+fn create_pipeline_cache(device: Device) -> Result<PipelineCache, InitVulkanError> {
+    let ci = vk::PipelineCacheCreateInfo::default();
+    unsafe {
+        let raw = device
+            .create_pipeline_cache(&ci, None)
+            .map_err(|e| init_err("sampler", e))?;
+
+        Ok(PipelineCache::new(raw, pipeline_cache::Deps { device }))
     }
 }
 
