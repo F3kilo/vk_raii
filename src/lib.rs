@@ -4,6 +4,7 @@ pub mod device;
 pub mod instance;
 pub mod memory;
 pub mod queue;
+pub mod command_pool;
 
 use std::ops::Deref;
 use std::sync::Arc;
