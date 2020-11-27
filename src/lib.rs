@@ -9,6 +9,7 @@ pub mod queue;
 pub mod ds_layout;
 pub mod sampler;
 pub mod pipeline_layout;
+pub mod pipeline_cache;
 
 use std::ops::Deref;
 use std::sync::Arc;
