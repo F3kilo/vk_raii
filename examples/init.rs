@@ -40,9 +40,12 @@ fn init_instance(entry: ash::Entry) -> Result<Instance, InitVulkanError> {
         .application_info(&app_inf)
         .enabled_layer_names(&layers)
         .enabled_extension_names(&exts);
-
-    let raw = unsafe { entry.create_instance(&ci, None) }.map_err(|e| init_err("instance", e))?;
-    unsafe { Ok(Instance::new(raw, instance::Dependencies { entry })) }
+    unsafe {
+        let raw = entry
+            .create_instance(&ci, None)
+            .map_err(|e| init_err("instance", e))?;
+        Ok(Instance::new(raw, instance::Dependencies { entry }))
+    }
 }
 
 fn init_debug_report(instance: Instance) -> Result<DebugReport<Callback>, InitVulkanError> {
