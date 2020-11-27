@@ -12,7 +12,8 @@ use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
 use vk_raii::device::Device;
 use vk_raii::instance::Instance;
 use vk_raii::memory::Memory;
-use vk_raii::{buffer, debug_report, device, instance, memory};
+use vk_raii::queue::Queue;
+use vk_raii::{buffer, debug_report, device, instance, memory, queue};
 
 fn main() {
     env_logger::builder()
@@ -29,8 +30,8 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let _debug_report = init_debug_report(instance.clone())?;
     let device = create_device(instance)?;
     let _buffer = create_buffer(device.clone())?;
-    let _memory = allocate_memory(device)?;
-
+    let _memory = allocate_memory(device.clone())?;
+    let _queue = get_queue(device);
     Ok("Success".into())
 }
 
@@ -77,8 +78,8 @@ fn init_debug_report(instance: Instance) -> Result<DebugReport<Callback>, InitVu
 }
 
 fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {
-    let pdevices = unsafe { instance.enumerate_physical_devices() }
-        .map_err(|e| init_err("pdevices", e))?;
+    let pdevices =
+        unsafe { instance.enumerate_physical_devices() }.map_err(|e| init_err("pdevices", e))?;
     let pdevice = match pdevices.get(0) {
         Some(pd) => Ok(*pd),
         None => Err(InitVulkanError {
@@ -103,6 +104,13 @@ fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {
             .map_err(|e| init_err("device", e))?;
 
         Ok(Device::new(raw, device::Dependencies { pdevice, instance }))
+    }
+}
+
+fn get_queue(device: Device) -> Queue {
+    unsafe {
+        let raw = device.get_device_queue(0, 0);
+        Queue::new(raw, queue::Dependencies { device })
     }
 }
 
