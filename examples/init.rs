@@ -19,9 +19,10 @@ use vk_raii::pipeline_cache::PipelineCache;
 use vk_raii::pipeline_layout::PipelineLayout;
 use vk_raii::queue::Queue;
 use vk_raii::sampler::Sampler;
+use vk_raii::shader_module::ShaderModule;
 use vk_raii::{
     buffer, command_buffer, command_pool, debug_report, device, ds_layout, instance, memory,
-    pipeline_cache, pipeline_layout, queue, sampler,
+    pipeline_cache, pipeline_layout, queue, sampler, shader_module,
 };
 
 fn main() {
@@ -46,7 +47,8 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let samplers = create_samplers(device.clone())?;
     let descr_set_layout = create_descr_set_layout(device.clone(), samplers)?;
     let _pipeline_layout = create_pipeline_layout(device.clone(), vec![descr_set_layout]);
-    let _pipeline_cache = create_pipeline_cache(device);
+    let _pipeline_cache = create_pipeline_cache(device.clone())?;
+    let _compute_shader = create_compute_shader(device)?;
     Ok("Success".into())
 }
 
@@ -73,10 +75,13 @@ fn init_debug_report(instance: Instance) -> Result<DebugReport<Callback>, InitVu
     let cb_ref = Pin::deref_mut(&mut callback);
     let cb_ptr: *mut Callback = cb_ref;
 
+    let flags = vk::DebugReportFlagsEXT::all()
+        ^ vk::DebugReportFlagsEXT::INFORMATION
+        ^ vk::DebugReportFlagsEXT::DEBUG;
     let ci = vk::DebugReportCallbackCreateInfoEXT::builder()
         .user_data(cb_ptr as *mut c_void)
         .pfn_callback(Some(debug_report::debug_report_with_default_callback))
-        .flags(vk::DebugReportFlagsEXT::all() ^ vk::DebugReportFlagsEXT::INFORMATION);
+        .flags(flags);
 
     let deb_rep = ext::DebugReport::new(&instance.dependencies().entry, instance.handle());
     let raw = unsafe { deb_rep.create_debug_report_callback(&ci, None) }
@@ -296,6 +301,21 @@ fn create_pipeline_cache(device: Device) -> Result<PipelineCache, InitVulkanErro
             .map_err(|e| init_err("sampler", e))?;
 
         Ok(PipelineCache::new(raw, pipeline_cache::Deps { device }))
+    }
+}
+
+fn create_compute_shader(device: Device) -> Result<ShaderModule, InitVulkanError> {
+    let mut file = std::fs::File::open("examples/data/compute_test.comp.spv").unwrap();
+    let data = ash::util::read_spv(&mut file).unwrap();
+
+    let ci = vk::ShaderModuleCreateInfo::builder().code(&data);
+
+    unsafe {
+        let raw = device
+            .create_shader_module(&ci, None)
+            .map_err(|e| init_err("compute shader", e))?;
+        let deps = shader_module::Deps { device };
+        Ok(ShaderModule::new(raw, deps))
     }
 }
 
