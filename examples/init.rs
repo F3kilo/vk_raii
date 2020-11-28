@@ -15,6 +15,7 @@ use vk_raii::device::Device;
 use vk_raii::ds_layout::DescriptorSetLayout;
 use vk_raii::instance::Instance;
 use vk_raii::memory::Memory;
+use vk_raii::pipeline::Pipeline;
 use vk_raii::pipeline_cache::PipelineCache;
 use vk_raii::pipeline_layout::PipelineLayout;
 use vk_raii::queue::Queue;
@@ -22,8 +23,9 @@ use vk_raii::sampler::Sampler;
 use vk_raii::shader_module::ShaderModule;
 use vk_raii::{
     buffer, command_buffer, command_pool, debug_report, device, ds_layout, instance, memory,
-    pipeline_cache, pipeline_layout, queue, sampler, shader_module,
+    pipeline, pipeline_cache, pipeline_layout, queue, sampler, shader_module,
 };
+use std::ffi::CStr;
 
 fn main() {
     env_logger::builder()
@@ -46,9 +48,10 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let _command_buffers = allocate_command_buffers(device.clone(), command_pool)?;
     let samplers = create_samplers(device.clone())?;
     let descr_set_layout = create_descr_set_layout(device.clone(), samplers)?;
-    let _pipeline_layout = create_pipeline_layout(device.clone(), vec![descr_set_layout]);
+    let pipeline_layout = create_pipeline_layout(device.clone(), vec![descr_set_layout])?;
     let _pipeline_cache = create_pipeline_cache(device.clone())?;
-    let _compute_shader = create_compute_shader(device)?;
+    let compute_shader = create_compute_shader(device.clone())?;
+    let _compute_pipeline = create_compute_pipeline(device, pipeline_layout, compute_shader);
     Ok("Success".into())
 }
 
@@ -316,6 +319,53 @@ fn create_compute_shader(device: Device) -> Result<ShaderModule, InitVulkanError
             .map_err(|e| init_err("compute shader", e))?;
         let deps = shader_module::Deps { device };
         Ok(ShaderModule::new(raw, deps))
+    }
+}
+
+fn create_compute_pipeline(
+    device: Device,
+    layout: PipelineLayout,
+    shader: ShaderModule,
+) -> Result<Pipeline, InitVulkanError> {
+    let map_entries = [
+        vk::SpecializationMapEntry::builder()
+            .constant_id(0)
+            .size(4)
+            .offset(0)
+            .build(),
+        vk::SpecializationMapEntry::builder()
+            .constant_id(1)
+            .size(4)
+            .offset(4)
+            .build(),
+    ];
+
+    let spec_data = [0u8; 32];
+
+    let spec_info = vk::SpecializationInfo::builder()
+        .data(&spec_data)
+        .map_entries(&map_entries);
+
+    let stage_ci = vk::PipelineShaderStageCreateInfo::builder()
+        .stage(vk::ShaderStageFlags::COMPUTE)
+        .module(*shader.handle())
+        .specialization_info(&spec_info)
+        .name(&CStr::from_bytes_with_nul(b"main\0").unwrap());
+
+    let ci = vk::ComputePipelineCreateInfo::builder()
+        .base_pipeline_index(-1)
+        .layout(*layout.handle())
+        .stage(stage_ci.build());
+
+    unsafe {
+        let raw = device
+            .create_compute_pipelines(Default::default(), &[ci.build()], None)
+            .map_err(|e| init_err("compute pipeline", e.1))?
+            .remove(0);
+
+        let deps = pipeline::Deps { device, layout };
+
+        Ok(Pipeline::new(raw, deps))
     }
 }
 
