@@ -3,6 +3,7 @@ use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 use log::LevelFilter;
 use std::error::Error;
+use std::ffi::CStr;
 use std::fmt;
 use std::ops::DerefMut;
 use std::os::raw::c_void;
@@ -19,13 +20,13 @@ use vk_raii::pipeline::Pipeline;
 use vk_raii::pipeline_cache::PipelineCache;
 use vk_raii::pipeline_layout::PipelineLayout;
 use vk_raii::queue::Queue;
+use vk_raii::render_pass::RenderPass;
 use vk_raii::sampler::Sampler;
 use vk_raii::shader_module::ShaderModule;
 use vk_raii::{
     buffer, command_buffer, command_pool, debug_report, device, ds_layout, instance, memory,
-    pipeline, pipeline_cache, pipeline_layout, queue, sampler, shader_module,
+    pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler, shader_module,
 };
-use std::ffi::CStr;
 
 fn main() {
     env_logger::builder()
@@ -51,7 +52,9 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let pipeline_layout = create_pipeline_layout(device.clone(), vec![descr_set_layout])?;
     let _pipeline_cache = create_pipeline_cache(device.clone())?;
     let compute_shader = create_compute_shader(device.clone())?;
-    let _compute_pipeline = create_compute_pipeline(device, pipeline_layout, compute_shader);
+    let _compute_pipeline =
+        create_compute_pipeline(device.clone(), pipeline_layout, compute_shader)?;
+    let _render_pass = create_render_pass(device)?;
     Ok("Success".into())
 }
 
@@ -366,6 +369,27 @@ fn create_compute_pipeline(
         let deps = pipeline::Deps { device, layout };
 
         Ok(Pipeline::new(raw, deps))
+    }
+}
+
+fn create_render_pass(device: Device) -> Result<RenderPass, InitVulkanError> {
+    let attachments = [];
+
+    let subpass_descr = vk::SubpassDescription::builder();
+
+    let subpasses = [
+        subpass_descr.build()
+    ];
+
+    let ci = vk::RenderPassCreateInfo::builder()
+        .attachments(&attachments)
+        .subpasses(&subpasses);
+
+    unsafe {
+        let raw = device
+            .create_render_pass(&ci, None)
+            .map_err(|e| init_err("render pass", e))?;
+        Ok(RenderPass::new(raw, render_pass::Deps { device }))
     }
 }
 
