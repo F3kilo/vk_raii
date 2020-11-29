@@ -14,6 +14,7 @@ pub mod pipeline;
 pub mod shader_module;
 pub mod render_pass;
 pub mod descr_pool;
+pub mod descr_set;
 
 use std::ops::Deref;
 use std::sync::Arc;
