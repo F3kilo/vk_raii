@@ -13,6 +13,7 @@ use vk_raii::command_buffer::CommandBuffers;
 use vk_raii::command_pool::CommandPool;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
 use vk_raii::descr_pool::DescriptorPool;
+use vk_raii::descr_set::DescriptorSets;
 use vk_raii::device::Device;
 use vk_raii::ds_layout::DescriptorSetLayout;
 use vk_raii::instance::Instance;
@@ -25,8 +26,9 @@ use vk_raii::render_pass::RenderPass;
 use vk_raii::sampler::Sampler;
 use vk_raii::shader_module::ShaderModule;
 use vk_raii::{
-    buffer, command_buffer, command_pool, debug_report, descr_pool, device, ds_layout, instance,
-    memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler, shader_module,
+    buffer, command_buffer, command_pool, debug_report, descr_pool, descr_set, device, ds_layout,
+    instance, memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler,
+    shader_module,
 };
 
 fn main() {
@@ -50,13 +52,15 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let _command_buffers = allocate_command_buffers(device.clone(), command_pool)?;
     let samplers = create_samplers(device.clone())?;
     let descr_set_layout = create_descr_set_layout(device.clone(), samplers)?;
-    let pipeline_layout = create_pipeline_layout(device.clone(), vec![descr_set_layout])?;
+    let pipeline_layout = create_pipeline_layout(device.clone(), vec![descr_set_layout.clone()])?;
     let _pipeline_cache = create_pipeline_cache(device.clone())?;
     let compute_shader = create_compute_shader(device.clone())?;
     let _compute_pipeline =
         create_compute_pipeline(device.clone(), pipeline_layout, compute_shader)?;
     let _render_pass = create_render_pass(device.clone())?;
-    let _descr_pool = create_descriptor_pool(device)?;
+    let descr_pool = create_descriptor_pool(device.clone())?;
+    let _descr_sets = create_descriptor_sets(device, descr_pool, descr_set_layout)?;
+
     Ok("Success".into())
 }
 
@@ -404,7 +408,12 @@ fn create_descriptor_pool(device: Device) -> Result<DescriptorPool, InitVulkanEr
         .descriptor_count(3)
         .build();
 
-    let pool_sizes = [pool_size_1, pool_size_2];
+    let pool_size_3 = vk::DescriptorPoolSize::builder()
+        .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .descriptor_count(3)
+        .build();
+
+    let pool_sizes = [pool_size_1, pool_size_2, pool_size_3];
 
     let ci = vk::DescriptorPoolCreateInfo::builder()
         .max_sets(10)
@@ -415,6 +424,30 @@ fn create_descriptor_pool(device: Device) -> Result<DescriptorPool, InitVulkanEr
             .create_descriptor_pool(&ci, None)
             .map_err(|e| init_err("descriptor pool", e))?;
         Ok(DescriptorPool::new(raw, descr_pool::Deps { device }))
+    }
+}
+
+fn create_descriptor_sets(
+    device: Device,
+    descr_pool: DescriptorPool,
+    ds_layout: DescriptorSetLayout,
+) -> Result<DescriptorSets, InitVulkanError> {
+    let ds_layouts = [*ds_layout];
+    let ai = vk::DescriptorSetAllocateInfo::builder()
+        .set_layouts(&ds_layouts)
+        .descriptor_pool(*descr_pool);
+
+    unsafe {
+        let raw = device
+            .allocate_descriptor_sets(&ai)
+            .map_err(|e| init_err("descriptor sets", e))?;
+        let deps = descr_set::Deps {
+            device,
+            pool: descr_pool,
+            ds_layouts: vec![ds_layout],
+            can_free: false
+        };
+        Ok(DescriptorSets::new(raw, deps))
     }
 }
 

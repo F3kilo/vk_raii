@@ -1,5 +1,6 @@
 use crate::descr_pool::DescriptorPool;
 use crate::device::Device;
+use crate::ds_layout::DescriptorSetLayout;
 use crate::{Handle, RawHandle};
 use ash::version::DeviceV1_0;
 use ash::vk;
@@ -7,6 +8,8 @@ use ash::vk;
 pub struct Deps {
     pub device: Device,
     pub pool: DescriptorPool,
+    pub ds_layouts: Vec<DescriptorSetLayout>,
+    pub can_free: bool,
 }
 
 impl RawHandle for vk::DescriptorSet {
@@ -17,7 +20,9 @@ impl RawHandle for vk::DescriptorSet {
     }
 
     fn destroy(&self, deps: &Self::Dependencies) {
-        unsafe { deps.device.free_descriptor_sets(*deps.pool, &[*self]) }
+        if deps.can_free {
+            unsafe { deps.device.free_descriptor_sets(*deps.pool, &[*self]) }
+        }
     }
 }
 
@@ -32,8 +37,10 @@ impl RawHandle for Vec<vk::DescriptorSet> {
 
     fn destroy(&self, deps: &Self::Dependencies) {
         unsafe {
-            deps.device
-                .free_descriptor_sets(*deps.pool, self.as_slice())
+            if deps.can_free {
+                deps.device
+                    .free_descriptor_sets(*deps.pool, self.as_slice())
+            }
         }
     }
 }
