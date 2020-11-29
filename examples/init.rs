@@ -12,6 +12,7 @@ use vk_raii::buffer::Buffer;
 use vk_raii::command_buffer::CommandBuffers;
 use vk_raii::command_pool::CommandPool;
 use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
+use vk_raii::descr_pool::DescriptorPool;
 use vk_raii::device::Device;
 use vk_raii::ds_layout::DescriptorSetLayout;
 use vk_raii::instance::Instance;
@@ -24,8 +25,8 @@ use vk_raii::render_pass::RenderPass;
 use vk_raii::sampler::Sampler;
 use vk_raii::shader_module::ShaderModule;
 use vk_raii::{
-    buffer, command_buffer, command_pool, debug_report, device, ds_layout, instance, memory,
-    pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler, shader_module,
+    buffer, command_buffer, command_pool, debug_report, descr_pool, device, ds_layout, instance,
+    memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler, shader_module,
 };
 
 fn main() {
@@ -54,7 +55,8 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let compute_shader = create_compute_shader(device.clone())?;
     let _compute_pipeline =
         create_compute_pipeline(device.clone(), pipeline_layout, compute_shader)?;
-    let _render_pass = create_render_pass(device)?;
+    let _render_pass = create_render_pass(device.clone())?;
+    let _descr_pool = create_descriptor_pool(device)?;
     Ok("Success".into())
 }
 
@@ -377,9 +379,7 @@ fn create_render_pass(device: Device) -> Result<RenderPass, InitVulkanError> {
 
     let subpass_descr = vk::SubpassDescription::builder();
 
-    let subpasses = [
-        subpass_descr.build()
-    ];
+    let subpasses = [subpass_descr.build()];
 
     let ci = vk::RenderPassCreateInfo::builder()
         .attachments(&attachments)
@@ -390,6 +390,31 @@ fn create_render_pass(device: Device) -> Result<RenderPass, InitVulkanError> {
             .create_render_pass(&ci, None)
             .map_err(|e| init_err("render pass", e))?;
         Ok(RenderPass::new(raw, render_pass::Deps { device }))
+    }
+}
+
+fn create_descriptor_pool(device: Device) -> Result<DescriptorPool, InitVulkanError> {
+    let pool_size_1 = vk::DescriptorPoolSize::builder()
+        .ty(vk::DescriptorType::STORAGE_BUFFER)
+        .descriptor_count(2)
+        .build();
+
+    let pool_size_2 = vk::DescriptorPoolSize::builder()
+        .ty(vk::DescriptorType::UNIFORM_BUFFER)
+        .descriptor_count(3)
+        .build();
+
+    let pool_sizes = [pool_size_1, pool_size_2];
+
+    let ci = vk::DescriptorPoolCreateInfo::builder()
+        .max_sets(10)
+        .pool_sizes(&pool_sizes);
+
+    unsafe {
+        let raw = device
+            .create_descriptor_pool(&ci, None)
+            .map_err(|e| init_err("descriptor pool", e))?;
+        Ok(DescriptorPool::new(raw, descr_pool::Deps { device }))
     }
 }
 
