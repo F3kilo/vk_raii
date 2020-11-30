@@ -109,7 +109,7 @@ impl From<MessageLevel> for log::Level {
     }
 }
 
-pub struct Callback(pub Pin<Box<dyn Fn(String, MessageLevel) + 'static>>);
+pub struct Callback(pub Pin<Box<dyn Fn(String, MessageLevel) + Send + Sync + 'static>>);
 
 impl Callback {
     pub fn cout_reports() -> Self {
