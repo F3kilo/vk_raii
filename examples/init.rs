@@ -141,8 +141,10 @@ fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {
 
 fn get_queue(device: Device) -> Queue {
     unsafe {
-        let raw = device.get_device_queue(0, 0);
-        Queue::new(raw, queue::Deps { device })
+        let family_index = 0;
+        let queue_index = 0;
+        let raw = device.get_device_queue(family_index, queue_index);
+        Queue::new(raw, queue::Deps { device, queue_index, family_index })
     }
 }
 
