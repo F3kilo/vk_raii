@@ -1,11 +1,9 @@
 use crate::command_pool::CommandPool;
-use crate::device::Device;
 use crate::{Handle, RawHandle};
 use ash::version::DeviceV1_0;
 use ash::vk;
 
 pub struct Deps {
-    pub device: Device,
     pub pool: CommandPool,
 }
 
@@ -17,7 +15,8 @@ impl RawHandle for vk::CommandBuffer {
     }
 
     fn destroy(&self, deps: &Self::Dependencies) {
-        unsafe { deps.device.free_command_buffers(*deps.pool, &[*self]) }
+        let device = &deps.pool.dependencies().device;
+        unsafe { device.free_command_buffers(*deps.pool, &[*self]) }
     }
 }
 
@@ -32,8 +31,8 @@ impl RawHandle for Vec<vk::CommandBuffer> {
 
     fn destroy(&self, deps: &Self::Dependencies) {
         unsafe {
-            deps.device
-                .free_command_buffers(*deps.pool, self.as_slice())
+            let device = &deps.pool.dependencies().device;
+            device.free_command_buffers(*deps.pool, self.as_slice())
         }
     }
 }

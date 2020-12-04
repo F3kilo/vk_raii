@@ -1,12 +1,10 @@
-use crate::device::Device;
+use crate::pipeline_layout::PipelineLayout;
 use crate::{Handle, RawHandle};
 use ash::version::DeviceV1_0;
 use ash::vk;
-use crate::pipeline_layout::PipelineLayout;
 
 pub struct Deps {
-    pub device: Device,
-    pub layout: PipelineLayout
+    pub layout: PipelineLayout,
 }
 
 impl RawHandle for vk::Pipeline {
@@ -16,8 +14,9 @@ impl RawHandle for vk::Pipeline {
         "pipeline"
     }
 
-    fn destroy(&self, dependencies: &Self::Dependencies) {
-        unsafe { dependencies.device.destroy_pipeline(*self, None) }
+    fn destroy(&self, deps: &Self::Dependencies) {
+        let device = &deps.layout.dependencies().device;
+        unsafe { device.destroy_pipeline(*self, None) }
     }
 }
 

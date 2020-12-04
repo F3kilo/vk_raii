@@ -144,7 +144,14 @@ fn get_queue(device: Device) -> Queue {
         let family_index = 0;
         let queue_index = 0;
         let raw = device.get_device_queue(family_index, queue_index);
-        Queue::new(raw, queue::Deps { device, queue_index, family_index })
+        Queue::new(
+            raw,
+            queue::Deps {
+                device,
+                queue_index,
+                family_index,
+            },
+        )
     }
 }
 
@@ -201,7 +208,7 @@ fn allocate_command_buffers(
         let raw = device
             .allocate_command_buffers(&ci)
             .map_err(|e| init_err("command buffers", e))?;
-        let deps = command_buffer::Deps { device, pool };
+        let deps = command_buffer::Deps { pool };
         Ok(CommandBuffers::new(raw, deps))?
     };
 
@@ -374,7 +381,7 @@ fn create_compute_pipeline(
             .map_err(|e| init_err("compute pipeline", e.1))?
             .remove(0);
 
-        let deps = pipeline::Deps { device, layout };
+        let deps = pipeline::Deps { layout };
 
         Ok(Pipeline::new(raw, deps))
     }
@@ -444,10 +451,9 @@ fn create_descriptor_sets(
             .allocate_descriptor_sets(&ai)
             .map_err(|e| init_err("descriptor sets", e))?;
         let deps = descr_set::Deps {
-            device,
             pool: descr_pool,
             ds_layouts: vec![ds_layout],
-            can_free: false
+            can_free: false,
         };
         Ok(DescriptorSets::new(raw, deps))
     }
