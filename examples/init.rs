@@ -25,11 +25,8 @@ use vk_raii::queue::Queue;
 use vk_raii::render_pass::RenderPass;
 use vk_raii::sampler::Sampler;
 use vk_raii::shader_module::ShaderModule;
-use vk_raii::{
-    buffer, command_buffer, command_pool, debug_report, descr_pool, descr_set, device, ds_layout,
-    instance, memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler,
-    shader_module,
-};
+use vk_raii::{buffer, command_buffer, command_pool, debug_report, descr_pool, descr_set, device, ds_layout, instance, memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler, shader_module, fence};
+use vk_raii::fence::Fence;
 
 fn main() {
     env_logger::builder()
@@ -59,7 +56,8 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
         create_compute_pipeline(device.clone(), pipeline_layout, compute_shader)?;
     let _render_pass = create_render_pass(device.clone())?;
     let descr_pool = create_descriptor_pool(device.clone())?;
-    let _descr_sets = create_descriptor_sets(device, descr_pool, descr_set_layout)?;
+    let _descr_sets = create_descriptor_sets(device.clone(), descr_pool, descr_set_layout)?;
+    let _fence = create_fence(device);
 
     Ok("Success".into())
 }
@@ -456,6 +454,17 @@ fn create_descriptor_sets(
             can_free: false,
         };
         Ok(DescriptorSets::new(raw, deps))
+    }
+}
+
+fn create_fence(device: Device) -> Result<Fence, InitVulkanError> {
+    let ci = vk::FenceCreateInfo::builder();
+
+    unsafe {
+        let raw = device
+            .create_fence(&ci, None)
+            .map_err(|e| init_err("render pass", e))?;
+        Ok(Fence::new(raw, fence::Deps { device }))
     }
 }
 

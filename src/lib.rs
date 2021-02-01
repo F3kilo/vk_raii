@@ -15,6 +15,7 @@ pub mod shader_module;
 pub mod render_pass;
 pub mod descr_pool;
 pub mod descr_set;
+pub mod fence;
 
 use std::ops::Deref;
 use std::sync::Arc;
