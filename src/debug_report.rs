@@ -5,35 +5,33 @@ use ash::vk;
 use std::ffi::{c_void, CStr};
 use std::fmt;
 use std::marker::PhantomData;
-use std::os::raw::c_char;
-use std::pin::Pin;
 
-pub struct RawDebugReport<UserData> {
-    handle: vk::DebugReportCallbackEXT,
-    debug_report: ext::DebugReport,
+pub struct RawDebugMessenger<UserData> {
+    handle: vk::DebugUtilsMessengerEXT,
+    debug_utils: ext::DebugUtils,
     _user_data: PhantomData<UserData>,
 }
 
-impl<UserData> RawDebugReport<UserData> {
-    pub fn new(handle: vk::DebugReportCallbackEXT, debug_report: ext::DebugReport) -> Self {
+impl<UserData> RawDebugMessenger<UserData> {
+    pub fn new(handle: vk::DebugUtilsMessengerEXT, debug_report: ext::DebugUtils) -> Self {
         Self {
             handle,
-            debug_report,
+            debug_utils: debug_report,
             _user_data: Default::default(),
         }
     }
 
-    pub fn handle(&self) -> &vk::DebugReportCallbackEXT {
+    pub fn handle(&self) -> &vk::DebugUtilsMessengerEXT {
         &self.handle
     }
 }
 
 pub struct Deps<UserData> {
     pub instance: Instance,
-    pub user_data: Option<Pin<Box<UserData>>>,
+    pub user_data: Option<Box<UserData>>,
 }
 
-impl<UserData> RawHandle for RawDebugReport<UserData> {
+impl<UserData> RawHandle for RawDebugMessenger<UserData> {
     type Dependencies = Deps<UserData>;
 
     fn name() -> &'static str {
@@ -42,13 +40,13 @@ impl<UserData> RawHandle for RawDebugReport<UserData> {
 
     fn destroy(&self, _: &Self::Dependencies) {
         unsafe {
-            self.debug_report
-                .destroy_debug_report_callback(self.handle, None)
+            self.debug_utils
+                .destroy_debug_utils_messenger(self.handle, None)
         }
     }
 }
 
-pub type DebugReport<UserData> = Handle<RawDebugReport<UserData>, Deps<UserData>>;
+pub type DebugMessanger<UserData> = Handle<RawDebugMessenger<UserData>, Deps<UserData>>;
 
 #[derive(Debug, Copy, Clone)]
 pub enum MessageLevel {
@@ -59,27 +57,24 @@ pub enum MessageLevel {
     Debug,
 }
 
-impl From<vk::DebugReportFlagsEXT> for MessageLevel {
-    fn from(flags: vk::DebugReportFlagsEXT) -> Self {
-        if flags.contains(vk::DebugReportFlagsEXT::ERROR) {
+impl From<vk::DebugUtilsMessageSeverityFlagsEXT> for MessageLevel {
+    fn from(flags: vk::DebugUtilsMessageSeverityFlagsEXT) -> Self {
+        if flags.contains(vk::DebugUtilsMessageSeverityFlagsEXT::ERROR) {
             return Self::Error;
         }
 
-        if flags.contains(vk::DebugReportFlagsEXT::WARNING) {
+        if flags.contains(vk::DebugUtilsMessageSeverityFlagsEXT::WARNING) {
             return Self::Warning;
         }
 
-        if flags.contains(vk::DebugReportFlagsEXT::PERFORMANCE_WARNING) {
-            return Self::Perfomance;
-        }
-
-        if flags.contains(vk::DebugReportFlagsEXT::DEBUG) {
+        if flags.contains(vk::DebugUtilsMessageSeverityFlagsEXT::INFO) {
             return Self::Debug;
         }
 
-        if flags.contains(vk::DebugReportFlagsEXT::INFORMATION) {
+        if flags.contains(vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE) {
             return Self::Information;
         }
+
 
         Self::Error
     }
@@ -109,19 +104,19 @@ impl From<MessageLevel> for log::Level {
     }
 }
 
-pub struct Callback(pub Pin<Box<dyn Fn(String, MessageLevel) + Send + Sync + 'static>>);
+pub struct Callback(pub Box<dyn Fn(String, MessageLevel) + Send + Sync + 'static>);
 
 impl Callback {
     pub fn cout_reports() -> Self {
         let callback = |msg, level| println!("Vulkan callback report [{}]: {}", level, msg);
-        Self(Box::pin(callback))
+        Self(Box::new(callback))
     }
 
     pub fn log_reports() -> Self {
         let callback = |msg, level: MessageLevel| {
             log::log!(level.into(), "Vulkan callback report [{}]: {}", level, msg)
         };
-        Self(Box::pin(callback))
+        Self(Box::new(callback))
     }
 }
 
@@ -135,20 +130,16 @@ impl Drop for Callback {
 /// * `p_user_data` must be valid pointer to `Callback` struct;
 /// * To destroy callback correctly, save it in `Dependencies` of `DebugReport`
 pub unsafe extern "system" fn debug_report_with_default_callback(
-    flags: vk::DebugReportFlagsEXT,
-    _: vk::DebugReportObjectTypeEXT,
-    _: u64,
-    _: usize,
-    _: i32,
-    _: *const c_char,
-    p_message: *const c_char,
+    msg_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
+    _msg_type: vk::DebugUtilsMessageTypeFlagsEXT,
+    callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
     p_user_data: *mut c_void,
 ) -> vk::Bool32 {
     let callback: *mut Callback = p_user_data.cast();
     let callback_ref = callback.as_ref();
-    let msg = CStr::from_ptr(p_message);
+    let msg = CStr::from_ptr((*callback_data).p_message);
     let str = msg.to_string_lossy();
-    let level = flags.into();
+    let level = msg_severity.into();
     match callback_ref {
         Some(cb) => cb.0(format!("{}", str), level),
         None => eprintln!("Can't dereference vk debug report callback pointer"),

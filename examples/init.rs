@@ -7,15 +7,15 @@ use std::ffi::CStr;
 use std::fmt;
 use std::ops::DerefMut;
 use std::os::raw::c_void;
-use std::pin::Pin;
 use vk_raii::buffer::Buffer;
 use vk_raii::command_buffer::CommandBuffers;
 use vk_raii::command_pool::CommandPool;
-use vk_raii::debug_report::{Callback, DebugReport, RawDebugReport};
+use vk_raii::debug_report::{Callback, DebugMessanger, RawDebugMessenger};
 use vk_raii::descr_pool::DescriptorPool;
 use vk_raii::descr_set::DescriptorSets;
 use vk_raii::device::Device;
 use vk_raii::ds_layout::DescriptorSetLayout;
+use vk_raii::fence::Fence;
 use vk_raii::instance::Instance;
 use vk_raii::memory::Memory;
 use vk_raii::pipeline::Pipeline;
@@ -25,8 +25,11 @@ use vk_raii::queue::Queue;
 use vk_raii::render_pass::RenderPass;
 use vk_raii::sampler::Sampler;
 use vk_raii::shader_module::ShaderModule;
-use vk_raii::{buffer, command_buffer, command_pool, debug_report, descr_pool, descr_set, device, ds_layout, instance, memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler, shader_module, fence};
-use vk_raii::fence::Fence;
+use vk_raii::{
+    buffer, command_buffer, command_pool, debug_report, descr_pool, descr_set, device, ds_layout,
+    fence, instance, memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass,
+    sampler, shader_module,
+};
 
 fn main() {
     env_logger::builder()
@@ -38,9 +41,9 @@ fn main() {
 }
 
 fn init_vulkan() -> Result<String, InitVulkanError> {
-    let entry = ash::Entry::new().map_err(|e| init_err("entry", e))?;
+    let entry = unsafe { ash::Entry::new() }.map_err(|e| init_err("entry", e))?;
     let instance = init_instance(entry)?;
-    let _debug_report = init_debug_report(instance.clone())?;
+    let _debug_report = init_debug_messenger(instance.clone())?;
     let device = create_device(instance)?;
     let _buffer = create_buffer(device.clone())?;
     let _memory = allocate_memory(device.clone())?;
@@ -65,7 +68,7 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
 fn init_instance(entry: ash::Entry) -> Result<Instance, InitVulkanError> {
     let app_inf = vk::ApplicationInfo::builder().api_version(vk::make_version(1, 0, 0));
 
-    let exts = [ext::DebugReport::name().as_ptr()];
+    let exts = [ext::DebugUtils::name().as_ptr()];
     let layers = ["VK_LAYER_KHRONOS_validation\0".as_ptr() as *const i8];
 
     let ci = vk::InstanceCreateInfo::builder()
@@ -80,31 +83,31 @@ fn init_instance(entry: ash::Entry) -> Result<Instance, InitVulkanError> {
     }
 }
 
-fn init_debug_report(instance: Instance) -> Result<DebugReport<Callback>, InitVulkanError> {
-    let mut callback = Box::pin(Callback::log_reports());
-    let cb_ref = Pin::deref_mut(&mut callback);
+fn init_debug_messenger(instance: Instance) -> Result<DebugMessanger<Callback>, InitVulkanError> {
+    let mut callback = Box::new(Callback::log_reports());
+    let cb_ref = callback.deref_mut();
     let cb_ptr: *mut Callback = cb_ref;
 
-    let flags = vk::DebugReportFlagsEXT::all()
-        ^ vk::DebugReportFlagsEXT::INFORMATION
-        ^ vk::DebugReportFlagsEXT::DEBUG;
-    let ci = vk::DebugReportCallbackCreateInfoEXT::builder()
+    let flags = vk::DebugUtilsMessengerCreateFlagsEXT::default();
+    let ci = vk::DebugUtilsMessengerCreateInfoEXT::builder()
+        .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::all())
+        .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
         .user_data(cb_ptr as *mut c_void)
-        .pfn_callback(Some(debug_report::debug_report_with_default_callback))
+        .pfn_user_callback(Some(debug_report::debug_report_with_default_callback))
         .flags(flags);
 
-    let deb_rep = ext::DebugReport::new(&instance.dependencies().entry, instance.handle());
-    let raw = unsafe { deb_rep.create_debug_report_callback(&ci, None) }
-        .map_err(|e| init_err("debug report", e))?;
+    let debug_utils = ext::DebugUtils::new(&instance.dependencies().entry, instance.handle());
+    let raw = unsafe { debug_utils.create_debug_utils_messenger(&ci, None) }
+        .map_err(|e| init_err("debug messenger", e))?;
 
     let deps = debug_report::Deps {
         instance,
         user_data: Some(callback),
     };
 
-    let raw_debug_report = RawDebugReport::new(raw, deb_rep);
+    let raw_debug_report = RawDebugMessenger::new(raw, debug_utils);
 
-    unsafe { Ok(DebugReport::new(raw_debug_report, deps)) }
+    unsafe { Ok(DebugMessanger::new(raw_debug_report, deps)) }
 }
 
 fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {

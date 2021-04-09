@@ -20,7 +20,7 @@ impl RawHandle for vk::DescriptorSet {
     fn destroy(&self, deps: &Self::Dependencies) {
         if deps.can_free {
             let device = &deps.pool.dependencies().device;
-            unsafe { device.free_descriptor_sets(*deps.pool, &[*self]) }
+            let _ = unsafe { device.free_descriptor_sets(*deps.pool, &[*self]) };
         }
     }
 }
@@ -38,7 +38,7 @@ impl RawHandle for Vec<vk::DescriptorSet> {
         unsafe {
             if deps.can_free {
                 let device = &deps.pool.dependencies().device;
-                device.free_descriptor_sets(*deps.pool, self.as_slice())
+                let _ = device.free_descriptor_sets(*deps.pool, self.as_slice());
             }
         }
     }
