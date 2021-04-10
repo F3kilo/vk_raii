@@ -128,6 +128,11 @@ where
             Err(e) => Err(Self { handle: e }),
         }
     }
+
+    /// Count of references to this handle.
+    pub fn reference_count(&self) -> usize {
+        Arc::strong_count(&self.handle)
+    }
 }
 
 impl<T, D> Clone for Handle<T, D>
