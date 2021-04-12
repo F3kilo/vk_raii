@@ -35,44 +35,58 @@ struct UniqueData<T, D> {
     dependencies: D,
 }
 
-impl<T: fmt::Debug, D> fmt::Debug for UniqueData<T, D> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&self.handle, f)
-    }
-}
-
-impl<T: PartialEq, D> PartialEq for UniqueData<T, D> {
-    fn eq(&self, other: &Self) -> bool {
-        PartialEq::eq(&self.handle, &other.handle)
-    }
-}
-
-impl<T: PartialEq + Eq, D> Eq for UniqueData<T, D> {}
-
-impl<T: PartialOrd, D> PartialOrd for UniqueData<T, D> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        PartialOrd::partial_cmp(&self.handle, &other.handle)
-    }
-}
-
-impl<T: Eq + PartialOrd + Ord, D> Ord for UniqueData<T, D> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        Ord::cmp(&self.handle, &other.handle)
-    }
-}
-
-impl<T: Hash, D> Hash for UniqueData<T, D> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.handle.hash(state)
-    }
-}
-
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct UniqueHandle<T, D>
 where
     T: RawHandle<Dependencies = D>,
 {
     data: Option<UniqueData<T, D>>,
+}
+
+impl<T: fmt::Debug, D> fmt::Debug for UniqueHandle<T, D>
+where
+    T: RawHandle<Dependencies = D>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&self.handle(), f)
+    }
+}
+
+impl<T: PartialEq, D> PartialEq for UniqueHandle<T, D>
+where
+    T: RawHandle<Dependencies = D>,
+{
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&self.handle(), &other.handle())
+    }
+}
+
+impl<T: PartialEq, D> Eq for UniqueHandle<T, D> where T: RawHandle<Dependencies = D> {}
+
+impl<T: PartialOrd, D> PartialOrd for UniqueHandle<T, D>
+where
+    T: RawHandle<Dependencies = D>,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&self.handle(), &other.handle())
+    }
+}
+
+impl<T: Eq + PartialOrd + Ord, D> Ord for UniqueHandle<T, D>
+where
+    T: RawHandle<Dependencies = D>,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ord::cmp(&self.handle(), &other.handle())
+    }
+}
+
+impl<T: Hash, D> Hash for UniqueHandle<T, D>
+where
+    T: RawHandle<Dependencies = D>,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.handle().hash(state)
+    }
 }
 
 impl<T, D> UniqueHandle<T, D>
