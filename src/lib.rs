@@ -2,21 +2,23 @@ pub mod buffer;
 pub mod command_buffer;
 pub mod command_pool;
 pub mod debug_report;
-pub mod device;
-pub mod instance;
-pub mod memory;
-pub mod queue;
-pub mod ds_layout;
-pub mod sampler;
-pub mod pipeline_layout;
-pub mod pipeline_cache;
-pub mod pipeline;
-pub mod shader_module;
-pub mod render_pass;
 pub mod descr_pool;
 pub mod descr_set;
+pub mod device;
+pub mod ds_layout;
 pub mod fence;
-
+pub mod instance;
+pub mod memory;
+pub mod pipeline;
+pub mod pipeline_cache;
+pub mod pipeline_layout;
+pub mod queue;
+pub mod render_pass;
+pub mod sampler;
+pub mod shader_module;
+use std::cmp::Ordering;
+use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -33,6 +35,39 @@ struct UniqueData<T, D> {
     dependencies: D,
 }
 
+impl<T: fmt::Debug, D> fmt::Debug for UniqueData<T, D> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&self.handle, f)
+    }
+}
+
+impl<T: PartialEq, D> PartialEq for UniqueData<T, D> {
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&self.handle, &other.handle)
+    }
+}
+
+impl<T: PartialEq + Eq, D> Eq for UniqueData<T, D> {}
+
+impl<T: PartialOrd, D> PartialOrd for UniqueData<T, D> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&self.handle, &other.handle)
+    }
+}
+
+impl<T: Eq + PartialOrd + Ord, D> Ord for UniqueData<T, D> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ord::cmp(&self.handle, &other.handle)
+    }
+}
+
+impl<T: Hash, D> Hash for UniqueData<T, D> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.handle.hash(state)
+    }
+}
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct UniqueHandle<T, D>
 where
     T: RawHandle<Dependencies = D>,
@@ -93,6 +128,7 @@ where
     }
 }
 
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct Handle<T, D>
 where
     T: RawHandle<Dependencies = D>,
