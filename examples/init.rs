@@ -1,7 +1,8 @@
-use ash::extensions::ext;
+use ash::extensions::{ext, khr};
 use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 use log::LevelFilter;
+use raw_window_handle::HasRawWindowHandle;
 use std::error::Error;
 use std::ffi::CStr;
 use std::fmt;
@@ -25,11 +26,9 @@ use vk_raii::queue::Queue;
 use vk_raii::render_pass::RenderPass;
 use vk_raii::sampler::Sampler;
 use vk_raii::shader_module::ShaderModule;
-use vk_raii::{
-    buffer, command_buffer, command_pool, debug_report, descr_pool, descr_set, device, ds_layout,
-    fence, instance, memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass,
-    sampler, shader_module,
-};
+use vk_raii::surface::Surface;
+use vk_raii::{buffer, command_buffer, command_pool, debug_report, descr_pool, descr_set, device, ds_layout, fence, instance, memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler, shader_module, surface, swapchain};
+use vk_raii::swapchain::Swapchain;
 
 fn main() {
     env_logger::builder()
@@ -44,10 +43,10 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let entry = unsafe { ash::Entry::new() }.map_err(|e| init_err("entry", e))?;
     let instance = init_instance(entry)?;
     let _debug_report = init_debug_messenger(instance.clone())?;
-    let device = create_device(instance)?;
+    let device = create_device(instance.clone())?;
     let _buffer = create_buffer(device.clone())?;
     let _memory = allocate_memory(device.clone())?;
-    let _queue = get_queue(device.clone());
+    let queue = get_queue(device.clone());
     let command_pool = create_command_pool(device.clone())?;
     let _command_buffers = allocate_command_buffers(device.clone(), command_pool)?;
     let samplers = create_samplers(device.clone())?;
@@ -62,13 +61,26 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
     let _descr_sets = create_descriptor_sets(device.clone(), descr_pool, descr_set_layout)?;
     let _fence = create_fence(device);
 
+    let events_loop = winit::event_loop::EventLoop::new();
+    let window = winit::window::WindowBuilder::new()
+        .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
+        .build(&events_loop)
+        .map_err(|e| init_err("winit window", e))?;
+    let surface = create_surface(instance, &window)?;
+    let _swapchain = create_swapchain(queue, surface)?;
+
     Ok("Success".into())
 }
 
 fn init_instance(entry: ash::Entry) -> Result<Instance, InitVulkanError> {
     let app_inf = vk::ApplicationInfo::builder().api_version(vk::make_version(1, 0, 0));
-
-    let exts = [ext::DebugUtils::name().as_ptr()];
+    log::info!(
+        "Instance layers: {:#?}",
+        entry.enumerate_instance_layer_properties()
+    );
+    let surface_exts = enumerate_surface_extensions()?;
+    let mut exts = vec![ext::DebugUtils::name().as_ptr()];
+    exts.extend(surface_exts.iter().map(|ext| ext.as_ptr() as *const i8));
     let layers = ["VK_LAYER_KHRONOS_validation\0".as_ptr() as *const i8];
 
     let ci = vk::InstanceCreateInfo::builder()
@@ -128,9 +140,11 @@ fn create_device(instance: Instance) -> Result<Device, InitVulkanError> {
         .build();
     let queues_info = [queue];
 
+    let exts = [khr::Swapchain::name().as_ptr()];
     let ci = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queues_info)
-        .enabled_features(&features);
+        .enabled_features(&features)
+        .enabled_extension_names(&exts);
     unsafe {
         let raw = instance
             .create_device(pdevice, &ci, None)
@@ -471,6 +485,47 @@ fn create_fence(device: Device) -> Result<Fence, InitVulkanError> {
     }
 }
 
+fn create_surface(
+    instance: Instance,
+    window_handle: &impl HasRawWindowHandle,
+) -> Result<Surface, InitVulkanError> {
+    unsafe {
+        let entry = &instance.dependencies().entry;
+        let loader = khr::Surface::new(entry, &*instance);
+        let raw = ash_window::create_surface(entry, &*instance, window_handle, None)
+            .map_err(|e| init_err("surface", e))?;
+        let deps = surface::Deps { instance, loader };
+        Ok(Surface::new(raw, deps))
+    }
+}
+
+fn create_swapchain(queue: Queue, surface: Surface) -> Result<Swapchain, InitVulkanError> {
+    let instance = &surface.dependencies().instance;
+    let device = queue.dependencies().device.clone();
+    let loader = khr::Swapchain::new(instance.handle(), device.handle());
+
+    let queue_family_indices = [queue.dependencies().family_index];
+    let ci = vk::SwapchainCreateInfoKHR::builder()
+        .surface(*surface)
+        .min_image_count(3)
+        .image_extent(vk::Extent2D {
+            width: 800,
+            height: 600,
+        })
+        .image_format(vk::Format::R8G8B8A8_SRGB)
+        .image_array_layers(1)
+        .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
+        .queue_family_indices(&queue_family_indices)
+        .present_mode(vk::PresentModeKHR::FIFO);
+
+    unsafe {
+        let raw = loader.create_swapchain(&ci, None)
+            .map_err(|e| init_err("swapchain", e))?;
+        let deps = swapchain::Deps { loader, device, surface };
+        Ok(Swapchain::new(raw, deps))
+    }
+}
+
 #[derive(Debug)]
 struct InitVulkanError {
     msg: String,
@@ -488,4 +543,38 @@ fn init_err(what: &str, e: impl Error) -> InitVulkanError {
     InitVulkanError {
         msg: format!("Can't init {}: {}", what, e),
     }
+}
+
+#[allow(unreachable_code)]
+fn enumerate_surface_extensions() -> Result<Vec<&'static CStr>, InitVulkanError> {
+    #[cfg(target_os = "windows")]
+    return Ok(vec![khr::Surface::name(), khr::Win32Surface::name()]);
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
+    return Ok(vec![
+        khr::Surface::name(),
+        khr::XcbSurface::name(),
+        khr::XlibSurface::name(),
+        khr::WaylandSurface::name(),
+    ]);
+
+    #[cfg(any(target_os = "android"))]
+    return Ok(vec![khr::Surface::name(), khr::AndroidSurface::name()]);
+
+    #[cfg(any(target_os = "macos"))]
+    return Ok(vec![khr::Surface::name(), ext::MetalSurface::name()]);
+
+    #[cfg(any(target_os = "ios"))]
+    return Ok(vec![khr::Surface::name(), ext::MetalSurface::name()]);
+
+    Err(init_err(
+        "surface extensions",
+        vk::Result::ERROR_EXTENSION_NOT_PRESENT,
+    ))
 }

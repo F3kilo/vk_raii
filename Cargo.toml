@@ -10,3 +10,8 @@ edition = "2018"
 ash = "0.32.1"
 env_logger = "0.8.2"
 log = "0.4.11"
+
+[dev-dependencies]
+ash-window = "0.6.0"
+winit = "0.24.0"
+raw-window-handle = "0.3.3"

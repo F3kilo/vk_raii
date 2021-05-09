@@ -16,6 +16,8 @@ pub mod render_pass;
 pub mod descr_pool;
 pub mod descr_set;
 pub mod fence;
+pub mod swapchain;
+pub mod surface;
 
 use std::ops::Deref;
 use std::sync::Arc;
