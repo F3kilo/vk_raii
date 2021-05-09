@@ -1,7 +1,8 @@
 use crate::device::Device;
-use crate::{Handle, RawHandle};
+use crate::{Handle, RawHandle, UniqueHandle};
 use ash::version::DeviceV1_0;
 use ash::vk;
+use std::hash::Hash;
 
 pub struct Deps {
     pub device: Device,
