@@ -78,11 +78,11 @@ fn init_vulkan() -> Result<String, InitVulkanError> {
 
 fn init_instance(entry: ash::Entry) -> Result<Instance, InitVulkanError> {
     let app_inf = vk::ApplicationInfo::builder().api_version(vk::make_version(1, 0, 0));
-    log::info!(
-        "Instance layers: {:#?}",
-        entry.enumerate_instance_layer_properties()
-    );
-    let surface_exts = enumerate_surface_extensions()?;
+    let surface_exts = surface::enumerate_surface_extensions(&entry)
+        .map_err(|e| init_err("enumerate surface extensions", e))?;
+
+    log::trace!("Surface extensions: {:?}", surface_exts);
+
     let mut exts = vec![ext::DebugUtils::name().as_ptr()];
     exts.extend(surface_exts.iter().map(|ext| ext.as_ptr() as *const i8));
     let layers = ["VK_LAYER_KHRONOS_validation\0".as_ptr() as *const i8];
@@ -518,7 +518,10 @@ fn create_swapchain(queue: Queue, surface: Surface) -> Result<Swapchain, InitVul
     };
 
     if !surface_supported {
-        return Err(init_err("surface support", vk::Result::ERROR_SURFACE_LOST_KHR));
+        return Err(init_err(
+            "surface support",
+            vk::Result::ERROR_SURFACE_LOST_KHR,
+        ));
     }
 
     let formats = unsafe {
@@ -582,38 +585,4 @@ fn init_err(what: &str, e: impl Error) -> InitVulkanError {
     InitVulkanError {
         msg: format!("Can't init {}: {}", what, e),
     }
-}
-
-#[allow(unreachable_code)]
-fn enumerate_surface_extensions() -> Result<Vec<&'static CStr>, InitVulkanError> {
-    #[cfg(target_os = "windows")]
-    return Ok(vec![khr::Surface::name(), khr::Win32Surface::name()]);
-
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd"
-    ))]
-    return Ok(vec![
-        khr::Surface::name(),
-        khr::XcbSurface::name(),
-        khr::XlibSurface::name(),
-        khr::WaylandSurface::name(),
-    ]); // todo: check extension presence
-
-    #[cfg(any(target_os = "android"))]
-    return Ok(vec![khr::Surface::name(), khr::AndroidSurface::name()]);
-
-    #[cfg(any(target_os = "macos"))]
-    return Ok(vec![khr::Surface::name(), ext::MetalSurface::name()]);
-
-    #[cfg(any(target_os = "ios"))]
-    return Ok(vec![khr::Surface::name(), ext::MetalSurface::name()]);
-
-    Err(init_err(
-        "surface extensions",
-        vk::Result::ERROR_EXTENSION_NOT_PRESENT,
-    ))
 }
