@@ -27,8 +27,12 @@ use vk_raii::render_pass::RenderPass;
 use vk_raii::sampler::Sampler;
 use vk_raii::shader_module::ShaderModule;
 use vk_raii::surface::Surface;
-use vk_raii::{buffer, command_buffer, command_pool, debug_report, descr_pool, descr_set, device, ds_layout, fence, instance, memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass, sampler, shader_module, surface, swapchain};
 use vk_raii::swapchain::Swapchain;
+use vk_raii::{
+    buffer, command_buffer, command_pool, debug_report, descr_pool, descr_set, device, ds_layout,
+    fence, instance, memory, pipeline, pipeline_cache, pipeline_layout, queue, render_pass,
+    sampler, shader_module, surface, swapchain,
+};
 
 fn main() {
     env_logger::builder()
@@ -502,9 +506,35 @@ fn create_surface(
 fn create_swapchain(queue: Queue, surface: Surface) -> Result<Swapchain, InitVulkanError> {
     let instance = &surface.dependencies().instance;
     let device = queue.dependencies().device.clone();
+    let pdevice = device.dependencies().pdevice;
+    let surface_loader = &surface.dependencies().loader;
     let loader = khr::Swapchain::new(instance.handle(), device.handle());
-
     let queue_family_indices = [queue.dependencies().family_index];
+
+    let surface_supported = unsafe {
+        surface_loader
+            .get_physical_device_surface_support(pdevice, queue_family_indices[0], *surface)
+            .map_err(|e| init_err("surface support", e))?
+    };
+
+    if !surface_supported {
+        return Err(init_err("surface support", vk::Result::ERROR_SURFACE_LOST_KHR));
+    }
+
+    let formats = unsafe {
+        surface_loader
+            .get_physical_device_surface_formats(pdevice, *surface)
+            .map_err(|e| init_err("surface formats", e))?
+    };
+    let format = formats[0];
+
+    let transform = unsafe {
+        surface_loader
+            .get_physical_device_surface_capabilities(pdevice, *surface)
+            .map_err(|e| init_err("surface capabilities", e))?
+            .current_transform
+    };
+
     let ci = vk::SwapchainCreateInfoKHR::builder()
         .surface(*surface)
         .min_image_count(3)
@@ -512,16 +542,25 @@ fn create_swapchain(queue: Queue, surface: Surface) -> Result<Swapchain, InitVul
             width: 800,
             height: 600,
         })
-        .image_format(vk::Format::R8G8B8A8_SRGB)
+        .image_format(format.format)
         .image_array_layers(1)
         .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
         .queue_family_indices(&queue_family_indices)
-        .present_mode(vk::PresentModeKHR::FIFO);
+        .present_mode(vk::PresentModeKHR::FIFO)
+        .pre_transform(transform)
+        .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+        .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+        .image_color_space(format.color_space);
 
     unsafe {
-        let raw = loader.create_swapchain(&ci, None)
+        let raw = loader
+            .create_swapchain(&ci, None)
             .map_err(|e| init_err("swapchain", e))?;
-        let deps = swapchain::Deps { loader, device, surface };
+        let deps = swapchain::Deps {
+            loader,
+            device,
+            surface,
+        };
         Ok(Swapchain::new(raw, deps))
     }
 }
