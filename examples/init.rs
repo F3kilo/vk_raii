@@ -562,7 +562,7 @@ fn enumerate_surface_extensions() -> Result<Vec<&'static CStr>, InitVulkanError>
         khr::XcbSurface::name(),
         khr::XlibSurface::name(),
         khr::WaylandSurface::name(),
-    ]);
+    ]); // todo: check extension presence
 
     #[cfg(any(target_os = "android"))]
     return Ok(vec![khr::Surface::name(), khr::AndroidSurface::name()]);
