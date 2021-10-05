@@ -24,6 +24,8 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 
+pub use ash;
+
 pub trait RawHandle {
     type Dependencies;
 
@@ -214,11 +216,11 @@ where
     }
 
     pub fn handle(&self) -> &T {
-        &self.handle.handle()
+        self.handle.handle()
     }
 
     pub fn dependencies(&self) -> &D {
-        &self.handle.dependencies()
+        self.handle.dependencies()
     }
 
     pub fn try_unwrap(self) -> Result<(T, D), Self> {
@@ -252,6 +254,6 @@ where
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.handle()
+        self.handle()
     }
 }
